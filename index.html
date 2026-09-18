@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Product Scanner</title>
+<title>Barcode Scanner</title>
 <style>
 
 /* =============================================
@@ -135,7 +135,8 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
                     lookup[fnsku] = {
                         name: displayName,
                         code: fnsku,
-                        filename: name
+                        filename: name,
+                        url: f.download_url
                     };
                     count++;
                 }
@@ -152,7 +153,7 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
         imageContainer.innerHTML = "";
 
         var img = document.createElement("img");
-        img.src = "images/" + p.filename;
+        img.src = p.url;
         img.alt = p.name;
         img.draggable = false;
         imageContainer.appendChild(img);
@@ -160,9 +161,21 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
         showScreen("product");
     }
 
+    function goFullscreen() {
+        var el = document.documentElement;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+            } else if (el.requestFullscreen) {
+                el.requestFullscreen();
+            }
+        }
+    }
+
     input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
             e.preventDefault();
+            goFullscreen();
             var code = input.value.trim();
             input.value = "";
             if (!code) return;
