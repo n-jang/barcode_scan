@@ -22,7 +22,7 @@
     --ready-size: 36px;
     --ready-color: #cccccc;
     --notfound-size: 72px;             /* "Product not found" text size */
-    --notfound-code-size: 36px;        /* Barcode number text size on not found screen */
+    --notfound-code-size: 48px;        /* Barcode number text size on not found screen */
     --notfound-color: #FF0000;         /* Pure red */
     --font: "Helvetica Neue", "Helvetica", Arial, sans-serif;
 }
@@ -152,7 +152,7 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
         imageContainer.innerHTML = "";
 
         var img = document.createElement("img");
-        img.src = "images/" + encodeURIComponent(p.filename).replace(/%2B/g, "+");
+        img.src = "images/" + p.filename;
         img.alt = p.name;
         img.draggable = false;
         imageContainer.appendChild(img);
