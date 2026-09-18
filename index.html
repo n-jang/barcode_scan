@@ -8,46 +8,26 @@
 
 /* =============================================
    SETTINGS — Edit these values to change the look.
-
-   Sizes use px (pixels).
-   Colors use names (white, red) or hex codes (#FF0000).
-   To make something bigger, increase the number.
-   To make something smaller, decrease the number.
    ============================================= */
 
 :root {
-    /* PAGE */
     --background: #ffffff;
-
-    /* IMAGE SIDE (left) */
-    --image-width: 45%;               /* How much screen the image takes */
-    --image-padding: 12px;            /* Space around the image */
-    --image-background: #ffffff;      /* Background behind the image */
-
-    /* PRODUCT NAME (right side) */
-    --name-size: 54px;                /* Text size of the product name */
-    --name-color: #1a1a1a;            /* Text color */
-    --name-padding: 48px;             /* Space around the name */
-
-    /* SCANNED CODE (small text shown below name) */
+    --image-width: 45%;
+    --image-padding: 16px;
+    --name-size: 54px;
+    --name-color: #1a1a1a;
+    --name-padding: 48px;
     --code-size: 18px;
     --code-color: #999999;
-
-    /* READY SCREEN (shown before first scan) */
     --ready-size: 36px;
     --ready-color: #cccccc;
-
-    /* NOT FOUND */
     --notfound-size: 32px;
     --notfound-color: #cc4444;
-
-    /* FONT */
     --font: "Helvetica Neue", "Helvetica", Arial, sans-serif;
 }
 
 /* =============================================
-   LAYOUT — Do not change anything below unless
-   you know what you are doing.
+   LAYOUT — Do not change below this line.
    ============================================= */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -77,7 +57,6 @@ html, body {
     color: var(--ready-color);
     font-size: var(--ready-size);
     font-weight: 300;
-    letter-spacing: 0.02em;
     user-select: none;
 }
 
@@ -94,7 +73,7 @@ html, body {
 .image-side {
     width: var(--image-width);
     height: 100%;
-    background: var(--image-background);
+    background: var(--background);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -102,8 +81,7 @@ html, body {
     flex-shrink: 0;
 }
 
-.image-side img,
-.image-side object {
+.image-side img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
@@ -204,7 +182,6 @@ html, body {
     var lookup = {};
     var supportedExts = ["pdf", "jpg", "jpeg", "png", "gif", "svg", "webp"];
 
-    /* ---- Detect GitHub username and repo from the page URL ---- */
     var host = window.location.hostname;
     var username = host.split(".")[0];
     var pathParts = window.location.pathname.split("/").filter(function (s) {
@@ -215,21 +192,18 @@ html, body {
 
     var apiUrl = "https://api.github.com/repos/" + username + "/" + reponame + "/contents/images";
 
-    /* ---- Keep scanner input focused at all times ---- */
     function refocus() { input.focus(); }
     document.addEventListener("click", refocus);
     document.addEventListener("touchstart", refocus);
     setInterval(refocus, 400);
     refocus();
 
-    /* ---- Show one screen, hide others ---- */
     function showScreen(name) {
         readyScreen.style.display = name === "ready" ? "flex" : "none";
         productDisplay.style.display = name === "product" ? "block" : "none";
         notfoundScreen.style.display = name === "notfound" ? "flex" : "none";
     }
 
-    /* ---- Load product list from GitHub ---- */
     function loadProducts() {
         fetch(apiUrl)
             .then(function (r) {
@@ -238,21 +212,17 @@ html, body {
             })
             .then(function (files) {
                 var count = 0;
-
                 for (var i = 0; i < files.length; i++) {
                     var f = files[i];
                     if (f.type !== "file") continue;
-
                     var name = f.name;
                     if (name.charAt(0) === "." || name.charAt(0) === "_") continue;
 
-                    /* Check extension */
                     var lastDot = name.lastIndexOf(".");
                     if (lastDot === -1) continue;
                     var ext = name.substring(lastDot + 1).toLowerCase();
                     if (supportedExts.indexOf(ext) === -1) continue;
 
-                    /* Parse: Product Name_FNSKU.ext */
                     var nameNoExt = name.substring(0, lastDot);
                     var lastUnderscore = nameNoExt.lastIndexOf("_");
                     if (lastUnderscore < 1) continue;
@@ -263,12 +233,10 @@ html, body {
                     lookup[fnsku] = {
                         name: displayName,
                         code: fnsku,
-                        filename: name,
-                        isPdf: ext === "pdf"
+                        filename: name
                     };
                     count++;
                 }
-
                 statusEl.textContent = count + " products loaded";
             })
             .catch(function (err) {
@@ -276,33 +244,20 @@ html, body {
             });
     }
 
-    /* ---- Display a product ---- */
     function showProduct(p) {
         productNameEl.textContent = p.name;
         productCodeEl.textContent = p.code;
         imageContainer.innerHTML = "";
 
-        var src = "images/" + encodeURIComponent(p.filename).replace(/%2B/g, "+");
-
-        if (p.isPdf) {
-            var obj = document.createElement("object");
-            obj.setAttribute("data", src);
-            obj.setAttribute("type", "application/pdf");
-            obj.style.width = "100%";
-            obj.style.height = "100%";
-            imageContainer.appendChild(obj);
-        } else {
-            var img = document.createElement("img");
-            img.src = src;
-            img.alt = p.name;
-            img.draggable = false;
-            imageContainer.appendChild(img);
-        }
+        var img = document.createElement("img");
+        img.src = "images/" + encodeURIComponent(p.filename).replace(/%2B/g, "+");
+        img.alt = p.name;
+        img.draggable = false;
+        imageContainer.appendChild(img);
 
         showScreen("product");
     }
 
-    /* ---- Scanner input: listen for Enter from barcode scanner ---- */
     input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -320,10 +275,8 @@ html, body {
         }
     });
 
-    /* ---- Start ---- */
     showScreen("ready");
     loadProducts();
-
 })();
 </script>
 </body>
