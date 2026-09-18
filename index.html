@@ -12,9 +12,11 @@
 
 :root {
     --background: #ffffff;
-    --image-size: 500px;               /* Width of the image. Bigger number = bigger image. */
-    --name-size: 54px;                 /* Text size of the product name */
+    --image-width: 45%;
+    --image-padding: 24px;
+    --name-size: 54px;
     --name-color: #1a1a1a;
+    --name-padding: 48px;
     --code-size: 18px;
     --code-color: #999999;
     --ready-size: 36px;
@@ -33,7 +35,153 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
 #scanner-input { position: fixed; top: -200px; left: -200px; width: 1px; height: 1px; opacity: 0; border: none; }
 #ready-screen { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ready-color); font-size: var(--ready-size); font-weight: 300; user-select: none; }
 #product-display { display: none; height: 100%; }
-.product-layout { display: flex; height: 100%; align-items: center; }
+.product-layout { display: flex; height: 100%; }
+.image-side { width: var(--image-width); height: 100%; background: var(--background); display: flex; align-items: center; justify-content: center; padding: var(--image-padding); flex-shrink: 0; }
+.image-side img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.name-side { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: var(--name-padding); }
+.product-name { font-size: var(--name-size); font-weight: 700; color: var(--name-color); line-height: 1.2; word-break: break-word; }
+.product-code { margin-top: 16px; font-size: var(--code-size); color: var(--code-color); font-weight: 400; }
+#notfound-screen { display: none; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--notfound-color); font-size: var(--notfound-size); font-weight: 500; user-select: none; }
+.notfound-code { font-size: 20px; color: #999; font-weight: 400; }
+#status { position: fixed; bottom: 12px; right: 16px; font-size: 12px; color: #ccc; user-select: none; }
+
+</style>
+</head>
+<body>
+
+<input id="scanner-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus />
+<div id="ready-screen">Ready to scan</div>
+<div id="product-display">
+    <div class="product-layout">
+        <div class="image-side" id="image-container"></div>
+        <div class="name-side">
+            <div class="product-name" id="product-name"></div>
+            <div class="product-code" id="product-code"></div>
+        </div>
+    </div>
+</div>
+<div id="notfound-screen">
+    <div>Product not found</div>
+    <div class="notfound-code" id="notfound-code"></div>
+</div>
+<div id="status">Loading products…</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var input = document.getElementById("scanner-input");
+    var readyScreen = document.getElementById("ready-screen");
+    var productDisplay = document.getElementById("product-display");
+    var notfoundScreen = document.getElementById("notfound-screen");
+    var imageContainer = document.getElementById("image-container");
+    var productNameEl = document.getElementById("product-name");
+    var productCodeEl = document.getElementById("product-code");
+    var notfoundCodeEl = document.getElementById("notfound-code");
+    var statusEl = document.getElementById("status");
+
+    var lookup = {};
+    var supportedExts = ["pdf", "jpg", "jpeg", "png", "gif", "svg", "webp"];
+
+    var host = window.location.hostname;
+    var username = host.split(".")[0];
+    var pathParts = window.location.pathname.split("/").filter(function (s) {
+        return s.length > 0 && s.toLowerCase() !== "index.html";
+    });
+    var reponame = pathParts[0];
+    if (!reponame) reponame = username + ".github.io";
+
+    var apiUrl = "https://api.github.com/repos/" + username + "/" + reponame + "/contents/images";
+
+    function refocus() { input.focus(); }
+    document.addEventListener("click", refocus);
+    document.addEventListener("touchstart", refocus);
+    setInterval(refocus, 400);
+    refocus();
+
+    function showScreen(name) {
+        readyScreen.style.display = name === "ready" ? "flex" : "none";
+        productDisplay.style.display = name === "product" ? "block" : "none";
+        notfoundScreen.style.display = name === "notfound" ? "flex" : "none";
+    }
+
+    function loadProducts() {
+        fetch(apiUrl)
+            .then(function (r) {
+                if (!r.ok) throw new Error("Could not load images folder (error " + r.status + ")");
+                return r.json();
+            })
+            .then(function (files) {
+                var count = 0;
+                for (var i = 0; i < files.length; i++) {
+                    var f = files[i];
+                    if (f.type !== "file") continue;
+                    var name = f.name;
+                    if (name.charAt(0) === "." || name.charAt(0) === "_") continue;
+
+                    var lastDot = name.lastIndexOf(".");
+                    if (lastDot === -1) continue;
+                    var ext = name.substring(lastDot + 1).toLowerCase();
+                    if (supportedExts.indexOf(ext) === -1) continue;
+
+                    var nameNoExt = name.substring(0, lastDot);
+                    var lastUnderscore = nameNoExt.lastIndexOf("_");
+                    if (lastUnderscore < 1) continue;
+
+                    var displayName = nameNoExt.substring(0, lastUnderscore);
+                    var fnsku = nameNoExt.substring(lastUnderscore + 1).toUpperCase();
+
+                    lookup[fnsku] = {
+                        name: displayName,
+                        code: fnsku,
+                        filename: name
+                    };
+                    count++;
+                }
+                statusEl.textContent = count + " products loaded";
+            })
+            .catch(function (err) {
+                statusEl.textContent = "Error: " + err.message;
+            });
+    }
+
+    function showProduct(p) {
+        productNameEl.textContent = p.name;
+        productCodeEl.textContent = p.code;
+        imageContainer.innerHTML = "";
+
+        var img = document.createElement("img");
+        img.src = "images/" + encodeURIComponent(p.filename).replace(/%2B/g, "+");
+        img.alt = p.name;
+        img.draggable = false;
+        imageContainer.appendChild(img);
+
+        showScreen("product");
+    }
+
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            var code = input.value.trim();
+            input.value = "";
+            if (!code) return;
+
+            var match = lookup[code.toUpperCase()];
+            if (match) {
+                showProduct(match);
+            } else {
+                notfoundCodeEl.textContent = code;
+                showScreen("notfound");
+            }
+        }
+    });
+
+    showScreen("ready");
+    loadProducts();
+})();
+</script>
+</body>
+</html>
 .image-side { display: flex; align-items: center; justify-content: center; padding: 24px; flex-shrink: 0; }
 .image-side img { width: var(--image-size); height: auto; display: block; }
 .name-side { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 48px; }
