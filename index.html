@@ -13,12 +13,13 @@
 :root {
     --background: #ffffff;
     --image-size: 500px;               /* Width of the image. Bigger number = bigger image. */
-    --image-margin-left: 150px;         /* Space from the left edge to the image. */
+    --image-margin-left: 150px;        /* Space from the left edge to the image. */
     --name-size: 72px;                 /* Text size of the product name */
     --name-color: #1a1a1a;
     --name-padding: 48px;
     --code-size: 36px;
     --code-color: #999999;
+    --old-color: #FF0000;              /* Color for products with "old" in the name */
     --ready-size: 36px;
     --ready-color: #cccccc;
     --notfound-size: 32px;
@@ -131,10 +132,13 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
                     var displayName = nameNoExt.substring(0, lastUnderscore);
                     var fnsku = nameNoExt.substring(lastUnderscore + 1).toUpperCase();
 
+                    var isOld = displayName.toLowerCase().indexOf("old") !== -1;
+
                     lookup[fnsku] = {
                         name: displayName,
                         code: fnsku,
-                        filename: name
+                        filename: name,
+                        isOld: isOld
                     };
                     count++;
                 }
@@ -149,6 +153,14 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
         productNameEl.textContent = p.name;
         productCodeEl.textContent = p.code;
         imageContainer.innerHTML = "";
+
+        if (p.isOld) {
+            productNameEl.style.color = "var(--old-color)";
+            productCodeEl.style.color = "var(--old-color)";
+        } else {
+            productNameEl.style.color = "var(--name-color)";
+            productCodeEl.style.color = "var(--code-color)";
+        }
 
         var img = document.createElement("img");
         img.src = "images/" + encodeURIComponent(p.filename).replace(/%2B/g, "+");
