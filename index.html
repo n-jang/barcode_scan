@@ -19,11 +19,11 @@
     --name-padding: 48px;
     --code-size: 36px;
     --code-color: #999999;
-    --old-color: #FF0000;              /* Color for products with "old" in the name */
     --ready-size: 36px;
     --ready-color: #cccccc;
-    --notfound-size: 32px;
-    --notfound-color: #cc4444;
+    --notfound-size: 72px;             /* "Product not found" text size */
+    --notfound-code-size: 36px;        /* Barcode number text size on not found screen */
+    --notfound-color: #FF0000;         /* Pure red */
     --font: "Helvetica Neue", "Helvetica", Arial, sans-serif;
 }
 
@@ -42,8 +42,8 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
 .name-side { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: var(--name-padding); }
 .product-name { font-size: var(--name-size); font-weight: 700; color: var(--name-color); line-height: 1.2; word-break: break-word; }
 .product-code { margin-top: 16px; font-size: var(--code-size); color: var(--code-color); font-weight: 400; }
-#notfound-screen { display: none; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--notfound-color); font-size: var(--notfound-size); font-weight: 500; user-select: none; }
-.notfound-code { font-size: 20px; color: #999; font-weight: 400; }
+#notfound-screen { display: none; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: var(--notfound-color); font-size: var(--notfound-size); font-weight: 700; user-select: none; }
+.notfound-code { font-size: var(--notfound-code-size); color: var(--notfound-color); font-weight: 700; }
 #status { position: fixed; bottom: 12px; right: 16px; font-size: 12px; color: #ccc; user-select: none; }
 
 </style>
@@ -132,13 +132,10 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
                     var displayName = nameNoExt.substring(0, lastUnderscore);
                     var fnsku = nameNoExt.substring(lastUnderscore + 1).toUpperCase();
 
-                    var isOld = displayName.toLowerCase().indexOf("old") !== -1;
-
                     lookup[fnsku] = {
                         name: displayName,
                         code: fnsku,
-                        filename: name,
-                        isOld: isOld
+                        filename: name
                     };
                     count++;
                 }
@@ -153,14 +150,6 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
         productNameEl.textContent = p.name;
         productCodeEl.textContent = p.code;
         imageContainer.innerHTML = "";
-
-        if (p.isOld) {
-            productNameEl.style.color = "var(--old-color)";
-            productCodeEl.style.color = "var(--old-color)";
-        } else {
-            productNameEl.style.color = "var(--name-color)";
-            productCodeEl.style.color = "var(--code-color)";
-        }
 
         var img = document.createElement("img");
         img.src = "images/" + encodeURIComponent(p.filename).replace(/%2B/g, "+");
