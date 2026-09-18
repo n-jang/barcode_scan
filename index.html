@@ -19,8 +19,8 @@
     --name-padding: 48px;
     --code-size: 36px;
     --code-color: #999999;
-    --ready-size: 72px;
-    --ready-color: #0000FF;
+    --ready-size: 36px;
+    --ready-color: #cccccc;
     --notfound-size: 72px;             /* "Product not found" text size */
     --notfound-code-size: 48px;        /* Barcode number text size on not found screen */
     --notfound-color: #FF0000;         /* Pure red */
@@ -65,7 +65,7 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
     <div>Product not found</div>
     <div class="notfound-code" id="notfound-code"></div>
 </div>
-<div id="status">Loading products…</div>
+<div id="status">Loading…</div>
 
 <script>
 (function () {
@@ -83,6 +83,7 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
 
     var lookup = {};
     var supportedExts = ["pdf", "jpg", "jpeg", "png", "gif", "svg", "webp"];
+    var CACHE_KEY = "scanner_products";
 
     var host = window.location.hostname;
     var username = host.split(".")[0];
@@ -106,44 +107,105 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
         notfoundScreen.style.display = name === "notfound" ? "flex" : "none";
     }
 
+    /* Parse file list into lookup table */
+    function parseFiles(files) {
+        lookup = {};
+        var count = 0;
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            var name = typeof f === "string" ? f : f.name;
+            var type = typeof f === "string" ? "file" : f.type;
+            if (type !== "file") continue;
+            if (name.charAt(0) === "." || name.charAt(0) === "_") continue;
+
+            var lastDot = name.lastIndexOf(".");
+            if (lastDot === -1) continue;
+            var ext = name.substring(lastDot + 1).toLowerCase();
+            if (supportedExts.indexOf(ext) === -1) continue;
+
+            var nameNoExt = name.substring(0, lastDot);
+            var lastUnderscore = nameNoExt.lastIndexOf("_");
+            if (lastUnderscore < 1) continue;
+
+            var displayName = nameNoExt.substring(0, lastUnderscore);
+            var fnsku = nameNoExt.substring(lastUnderscore + 1).toUpperCase();
+
+            lookup[fnsku] = {
+                name: displayName,
+                code: fnsku,
+                filename: name
+            };
+            count++;
+        }
+        return count;
+    }
+
+    /* Save product list to browser storage */
+    function saveToCache(files) {
+        try {
+            var names = [];
+            for (var i = 0; i < files.length; i++) {
+                names.push({ name: files[i].name, type: files[i].type });
+            }
+            localStorage.setItem(CACHE_KEY, JSON.stringify(names));
+        } catch (e) {}
+    }
+
+    /* Load product list from browser storage */
+    function loadFromCache() {
+        try {
+            var data = localStorage.getItem(CACHE_KEY);
+            if (data) return JSON.parse(data);
+        } catch (e) {}
+        return null;
+    }
+
+    /* Pre-download all images so they work offline */
+    function preloadImages(count) {
+        var keys = Object.keys(lookup);
+        var loaded = 0;
+        var total = keys.length;
+
+        if (total === 0) {
+            statusEl.textContent = count + " products loaded — offline ready";
+            return;
+        }
+
+        statusEl.textContent = count + " products loaded — saving for offline…";
+
+        for (var i = 0; i < keys.length; i++) {
+            var img = new Image();
+            img.onload = img.onerror = function () {
+                loaded++;
+                if (loaded >= total) {
+                    statusEl.textContent = count + " products loaded — offline ready";
+                }
+            };
+            img.src = "images/" + encodeURIComponent(lookup[keys[i]].filename);
+        }
+    }
+
+    /* Main load function */
     function loadProducts() {
         fetch(apiUrl)
             .then(function (r) {
-                if (!r.ok) throw new Error("Could not load images folder (error " + r.status + ")");
+                if (!r.ok) throw new Error("error " + r.status);
                 return r.json();
             })
             .then(function (files) {
-                var count = 0;
-                for (var i = 0; i < files.length; i++) {
-                    var f = files[i];
-                    if (f.type !== "file") continue;
-                    var name = f.name;
-                    if (name.charAt(0) === "." || name.charAt(0) === "_") continue;
-
-                    var lastDot = name.lastIndexOf(".");
-                    if (lastDot === -1) continue;
-                    var ext = name.substring(lastDot + 1).toLowerCase();
-                    if (supportedExts.indexOf(ext) === -1) continue;
-
-                    var nameNoExt = name.substring(0, lastDot);
-                    var lastUnderscore = nameNoExt.lastIndexOf("_");
-                    if (lastUnderscore < 1) continue;
-
-                    var displayName = nameNoExt.substring(0, lastUnderscore);
-                    var fnsku = nameNoExt.substring(lastUnderscore + 1).toUpperCase();
-
-                    lookup[fnsku] = {
-                        name: displayName,
-                        code: fnsku,
-                        filename: name,
-                        url: f.download_url
-                    };
-                    count++;
-                }
-                statusEl.textContent = count + " products loaded";
+                var count = parseFiles(files);
+                saveToCache(files);
+                preloadImages(count);
             })
-            .catch(function (err) {
-                statusEl.textContent = "Error: " + err.message;
+            .catch(function () {
+                /* Offline or error — try cached data */
+                var cached = loadFromCache();
+                if (cached) {
+                    var count = parseFiles(cached);
+                    statusEl.textContent = count + " products loaded — offline";
+                } else {
+                    statusEl.textContent = "No internet and no saved data";
+                }
             });
     }
 
@@ -192,6 +254,11 @@ html, body { height: 100%; overflow: hidden; background: var(--background); font
 
     showScreen("ready");
     loadProducts();
+
+    /* Register service worker for offline use */
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js");
+    }
 })();
 </script>
 </body>
